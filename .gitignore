@@ -1,0 +1,17 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Data (downloaded / generated)
+data/
+*.duckdb
+*.duckdb.wal
+
+# Node
+node_modules/
+frontend/dist/
+
+# Editors / OS
+.DS_Store
+.vscode/
