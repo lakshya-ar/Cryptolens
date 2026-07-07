@@ -18,14 +18,16 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import stats, store
-from .config import ASSETS, RESOLUTIONS, SYMBOLS
+from .config import ASSETS, CORS_ORIGINS, RESOLUTIONS, SYMBOLS
 from .depth import reconstruct_depth
 
 app = FastAPI(title="CryptoLens API", version="0.1.0")
 
+_origins = ["*"] if CORS_ORIGINS.strip() == "*" else [o.strip() for o in CORS_ORIGINS.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

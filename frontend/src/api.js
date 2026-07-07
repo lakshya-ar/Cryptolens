@@ -1,4 +1,7 @@
-const BASE = "/api";
+// In production (Vercel) set VITE_API_BASE to the Render backend, e.g.
+// "https://cryptolens-api.onrender.com/api". Locally it falls back to the
+// Vite dev proxy at "/api".
+const BASE = import.meta.env.VITE_API_BASE || "/api";
 
 async function get(path, params = {}) {
   const entries = Object.entries(params).filter(([, v]) => v != null && v !== "");
@@ -26,4 +29,6 @@ export const api = {
   depth: (p) => get("/depth", p),
 };
 
-export const WS_URL = "ws://localhost:8080";
+// In production set VITE_WS_URL to the Render ws-server over TLS, e.g.
+// "wss://cryptolens-ws.onrender.com".
+export const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8080";
