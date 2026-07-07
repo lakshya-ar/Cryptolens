@@ -38,3 +38,22 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+
+  # --- Frontend static site (Vite) -----------------------------------------
+  # Hosted on Render (not Vercel) so it's reachable on networks that can't
+  # route to Vercel's edge IPs. VITE_* vars are baked in at build time.
+  - type: web
+    name: cryptolens-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_BASE
+        value: https://cryptolens-api-qayj.onrender.com/api
+      - key: VITE_WS_URL
+        value: wss://cryptolens-ws.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
