@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Plot } from "../plot.jsx";
 import { Panel, Status } from "./ui.jsx";
+import { TickPulse } from "../fx/TickPulse.jsx";
 import { useApp } from "../state.jsx";
 import { api, WS_URL } from "../api";
 import { useFetch } from "../hooks";
@@ -12,7 +13,7 @@ import { COLORS, baseLayout, plotConfig } from "../theme";
  * Live mode streams from the Binance relay; historical mode reconstructs depth
  * from OHLCV at the window end.
  */
-export default function MarketDepth() {
+export default function MarketDepth({ index = 0 }) {
   const { asset, window } = useApp();
   const [mode, setMode] = useState("historical");
   const [live, setLive] = useState(null);
@@ -105,7 +106,7 @@ export default function MarketDepth() {
   const badge =
     mode === "live" ? (
       <span style={{ fontSize: 11, color: COLORS.muted }}>
-        <span className="live-dot" /> {wsState}
+        <TickPulse mid={live?.mid} /> <span className="live-dot" /> {wsState}
       </span>
     ) : book?.synthetic ? (
       <span style={{ fontSize: 11, color: COLORS.muted }}>reconstructed</span>
@@ -113,6 +114,8 @@ export default function MarketDepth() {
 
   return (
     <Panel
+      index={index}
+      glow={mode === "live" && wsState === "live" ? "ok" : undefined}
       className="span-2"
       title="Market Depth"
       subtitle={book?.mid ? `mid $${Number(book.mid).toLocaleString()}` : "order book"}

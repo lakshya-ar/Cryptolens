@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Plot } from "../plot.jsx";
 import { Panel, Status } from "./ui.jsx";
 import { useApp } from "../state.jsx";
@@ -5,13 +6,16 @@ import { api } from "../api";
 import { useFetch } from "../hooks";
 import { COLORS, baseLayout, plotConfig } from "../theme";
 
+// Three.js lives in its own lazy chunk — only fetched when 3D mode is opened.
+const Constellation = lazy(() => import("../fx/three/CorrelationConstellation.jsx"));
+
 /**
  * View 5 — Cross-Asset Correlation Matrix. Always shows all five assets
- * regardless of the selected one. Clicking a cell drills into the rolling
- * correlation for that pair.
+ * regardless of the selected one. Clicking a cell (2D) or an edge (3D)
+ * drills into the rolling correlation for that pair.
  */
-export default function CorrelationMatrix() {
-  const { window, pair, setPair } = useApp();
+export default function CorrelationMatrix({ index = 0 }) {
+  const { window, pair, setPair, corrView: view, setCorrView: setView } = useApp();
 
   const matrix = useFetch(
     () => api.correlation({ start: window.start, end: window.end, resolution: "auto" }),
@@ -99,11 +103,27 @@ export default function CorrelationMatrix() {
 
   return (
     <Panel
+      index={index}
       className="span-2"
       title="Correlation Matrix"
       subtitle={matrix.data ? `${matrix.data.resolution} returns · all assets` : "cross-asset"}
+      actions={
+        <div className="seg">
+          <button className={view === "2d" ? "active" : ""} onClick={() => setView("2d")}>
+            2D
+          </button>
+          <button className={view === "3d" ? "active" : ""} onClick={() => setView("3d")}>
+            3D
+          </button>
+        </div>
+      }
     >
       <Status loading={matrix.loading} error={matrix.error} empty={labels.length === 0}>
+        {view === "3d" ? (
+          <Suspense fallback={<div className="status">initialising constellation…</div>}>
+            <Constellation matrix={z} labels={labels} />
+          </Suspense>
+        ) : (
         <Plot
           data={heatFig.data}
           layout={heatFig.layout}
@@ -115,6 +135,7 @@ export default function CorrelationMatrix() {
             if (p) setPair([p.y, p.x]);
           }}
         />
+        )}
         {pair && pair[0] !== pair[1] && (
           <>
             <div style={{ color: COLORS.muted, fontSize: 11, margin: "6px 0 2px" }}>

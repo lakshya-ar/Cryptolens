@@ -9,4 +9,16 @@ export default defineConfig({
       "/api": "http://127.0.0.1:8000",
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          plotly: ["plotly.js-dist-min"],
+          three: ["three", "@react-three/fiber", "@react-three/drei"],
+          motion: ["framer-motion"],
+        },
+      },
+    },
+  },
 });

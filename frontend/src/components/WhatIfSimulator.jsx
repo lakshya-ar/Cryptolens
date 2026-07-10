@@ -13,7 +13,7 @@ const pct = (x) => (x == null ? "—" : `${(x * 100).toFixed(2)}%`);
  * for a trigger (e.g. a sharp hourly drop) and shows the distribution of
  * forward price paths after each occurrence.
  */
-export default function WhatIfSimulator() {
+export default function WhatIfSimulator({ index = 0 }) {
   const { asset } = useApp();
   const [form, setForm] = useState({
     direction: "drop",
@@ -77,6 +77,7 @@ export default function WhatIfSimulator() {
 
   return (
     <Panel
+      index={index}
       className="span-6"
       title="The What-If Simulator"
       subtitle="pattern hypothesis tester · scans all history"
@@ -113,9 +114,19 @@ export default function WhatIfSimulator() {
           Run scan
         </button>
         <div className="stats-row" style={{ marginLeft: "auto" }}>
-          <Stat label="events found" value={data?.n_events ?? "…"} />
-          <Stat label="win rate" value={t ? pct(t.win_rate) : "…"} tone={t && t.win_rate >= 0.5 ? "up" : "down"} />
-          <Stat label="mean outcome" value={t ? pct(t.mean) : "…"} tone={t && t.mean >= 0 ? "up" : "down"} />
+          <Stat label="events found" num={data?.n_events} format={(v) => `${Math.round(v)}`} fallbackValue="…" />
+          <Stat
+            label="win rate"
+            num={t?.win_rate}
+            format={(v) => `${(v * 100).toFixed(1)}%`}
+            tone={t && t.win_rate >= 0.5 ? "up" : "down"}
+          />
+          <Stat
+            label="mean outcome"
+            num={t?.mean}
+            format={(v) => `${(v * 100).toFixed(2)}%`}
+            tone={t && t.mean >= 0 ? "up" : "down"}
+          />
           <Stat label="best / worst" value={t ? `${pct(t.best)} / ${pct(t.worst)}` : "…"} />
         </div>
       </div>

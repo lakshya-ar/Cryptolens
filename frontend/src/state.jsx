@@ -11,6 +11,9 @@ export function AppStateProvider({ children }) {
   const [window, setWindow] = useState(null);
   // Pair selected in the correlation matrix for drill-down: [a, b] or null.
   const [pair, setPair] = useState(null);
+  // Correlation view mode ("2d" | "3d") — lives here so it survives the
+  // dashboard remount that happens on asset switch.
+  const [corrView, setCorrView] = useState("2d");
 
   useEffect(() => {
     api
@@ -23,7 +26,7 @@ export function AppStateProvider({ children }) {
       .catch((e) => setError(e.message));
   }, []);
 
-  const value = { meta, error, asset, setAsset, window, setWindow, pair, setPair };
+  const value = { meta, error, asset, setAsset, window, setWindow, pair, setPair, corrView, setCorrView };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

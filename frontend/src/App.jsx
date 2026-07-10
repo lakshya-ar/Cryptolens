@@ -1,5 +1,7 @@
+import { AnimatePresence, motion } from "framer-motion";
 import { useApp } from "./state.jsx";
 import { ASSET_COLOR } from "./theme";
+import Landing from "./intro/Landing.jsx";
 import TimeMachine from "./components/TimeMachine.jsx";
 import VolatilityEngine from "./components/VolatilityEngine.jsx";
 import CorrelationMatrix from "./components/CorrelationMatrix.jsx";
@@ -29,7 +31,7 @@ function Header() {
             <button
               key={s}
               className={`asset-tab ${active ? "active" : ""}`}
-              style={active ? { background: ASSET_COLOR[s] } : {}}
+              style={active ? { background: ASSET_COLOR[s], color: "#0b0e14" } : {}}
               disabled={disabled}
               title={disabled ? "no data ingested for this asset" : ""}
               onClick={() => setAsset(s)}
@@ -49,7 +51,7 @@ function Header() {
 }
 
 export default function App() {
-  const { error, window } = useApp();
+  const { error, window, asset } = useApp();
 
   if (error) {
     return (
@@ -66,17 +68,27 @@ export default function App() {
 
   return (
     <>
+      <Landing />
       <Header />
       {!window ? (
         <div className="status">Loading dataset…</div>
       ) : (
-        <main className="dashboard">
-          <TimeMachine />
-          <VolatilityEngine />
-          <CorrelationMatrix />
-          <MarketDepth />
-          <WhatIfSimulator />
-        </main>
+        <AnimatePresence mode="wait">
+          <motion.main
+            key={asset}
+            className="dashboard"
+            initial={{ opacity: 0, filter: "blur(6px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, filter: "blur(6px)" }}
+            transition={{ duration: 0.28 }}
+          >
+            <TimeMachine index={0} />
+            <VolatilityEngine index={1} />
+            <CorrelationMatrix index={2} />
+            <MarketDepth index={3} />
+            <WhatIfSimulator index={4} />
+          </motion.main>
+        </AnimatePresence>
       )}
     </>
   );

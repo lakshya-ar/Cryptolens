@@ -10,8 +10,10 @@ const SCENARIOS = ["normal", "stress", "crash"];
 const SCEN_COLOR = { normal: "#3fb950", stress: "#f0b429", crash: "#f85149" };
 const pct = (x) => (x == null ? "—" : `${(x * 100).toFixed(1)}%`);
 
+const SCEN_GLOW = { normal: "ok", stress: "warn", crash: "crit" };
+
 /** View 4 — Volatility Engine: risk analytics with normal/stress/crash tail risk. */
-export default function VolatilityEngine() {
+export default function VolatilityEngine({ index = 0 }) {
   const { asset, window } = useApp();
   const [scenario, setScenario] = useState("normal");
 
@@ -62,6 +64,8 @@ export default function VolatilityEngine() {
 
   return (
     <Panel
+      index={index}
+      glow={data ? SCEN_GLOW[scenario] : undefined}
       className="span-2"
       title="Volatility Engine"
       subtitle={data ? `ann. vol ${pct(data.annualized_vol)}` : "risk analytics"}
@@ -87,10 +91,10 @@ export default function VolatilityEngine() {
             </div>
             <Plot data={probFig.data} layout={probFig.layout} config={plotConfig} style={{ width: "100%" }} useResizeHandler />
             <div className="stats-row">
-              <Stat label="VaR 95%" value={pct(sc?.var95)} tone="down" />
-              <Stat label="VaR 99%" value={pct(sc?.var99)} tone="down" />
-              <Stat label="CVaR 95%" value={pct(sc?.cvar95)} tone="down" />
-              <Stat label="Kurtosis" value={data.distribution.kurtosis.toFixed(2)} />
+              <Stat label="VaR 95%" num={sc?.var95} format={(v) => `${(v * 100).toFixed(1)}%`} tone="down" />
+              <Stat label="VaR 99%" num={sc?.var99} format={(v) => `${(v * 100).toFixed(1)}%`} tone="down" />
+              <Stat label="CVaR 95%" num={sc?.cvar95} format={(v) => `${(v * 100).toFixed(1)}%`} tone="down" />
+              <Stat label="Kurtosis" num={data.distribution.kurtosis} format={(v) => v.toFixed(2)} />
             </div>
           </>
         )}

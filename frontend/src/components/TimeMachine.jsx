@@ -11,7 +11,7 @@ import { COLORS, ASSET_COLOR, baseLayout, plotConfig } from "../theme";
  * shared window; the detail panel renders candlesticks + volume at the
  * auto-selected resolution.
  */
-export default function TimeMachine() {
+export default function TimeMachine({ index = 0 }) {
   const { asset, meta, window, setWindow } = useApp();
   const cov = meta?.coverage?.find((c) => c.symbol === asset);
 
@@ -107,6 +107,7 @@ export default function TimeMachine() {
 
   return (
     <Panel
+      index={index}
       className="span-6"
       title="The Time Machine"
       subtitle={`Temporal explorer · ${detail.data?.resolution ?? "…"} candles · drag the slider to brush every view`}
