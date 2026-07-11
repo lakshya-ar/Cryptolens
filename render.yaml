@@ -1,7 +1,5 @@
-# Render Blueprint — deploys the backend API and the WebSocket relay.
-# The frontend is deployed separately on Vercel (see vercel.json / DEPLOY.md).
-#
-# Create both services at once: Render Dashboard → New → Blueprint → pick this repo.
+# Render Blueprint — deploys the backend API, WebSocket relay, and Frontend.
+# Create all services at once: Render Dashboard → New → Blueprint → pick this repo.
 services:
   # --- FastAPI REST API + PostgreSQL (Logic Layer) -------------------------
   - type: web
@@ -17,7 +15,10 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.7"
       - key: CORS_ORIGINS
-        value: "*"
+        fromService:
+          type: static
+          name: cryptolens-frontend
+          property: url
       # MUST SET DATABASE_URL IN RENDER DASHBOARD MANUALLY 
       # TO POINT TO YOUR PROVISIONED POSTGRESQL INSTANCE
 
@@ -34,3 +35,23 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+
+  # --- React/Vite Frontend Static Site -------------------------------------
+  - type: static
+    name: cryptolens-frontend
+    plan: free
+    region: singapore
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    envVars:
+      - key: VITE_API_BASE
+        fromService:
+          type: web
+          name: cryptolens-api
+          property: url
+      - key: VITE_WS_URL
+        fromService:
+          type: web
+          name: cryptolens-ws
+          property: url
