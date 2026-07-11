@@ -2,6 +2,9 @@
 # Usage:  powershell -ExecutionPolicy Bypass -File scripts\start-all.ps1
 $root = Split-Path $PSScriptRoot -Parent
 
+Write-Host "ATTENTION: Ensure your local PostgreSQL server is running (e.g., localhost:5432)." -ForegroundColor Red
+Write-Host "If your DB credentials differ from the default, set `$env:DATABASE_URL before running this script." -ForegroundColor Yellow
+
 # 1) Backend REST API (FastAPI on :8000)
 Start-Process powershell -ArgumentList "-NoExit", "-Command",
   "`$env:PYTHONPATH='$root\backend'; & '$root\backend\.venv\Scripts\python.exe' -m uvicorn app.main:app --reload --port 8000"

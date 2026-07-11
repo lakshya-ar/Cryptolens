@@ -1,135 +1,110 @@
-"""Download Binance monthly 1m klines from data.binance.vision into DuckDB.
-
-Usage:
-    python -m ingestion.download --start 2024-01 --end 2024-03 --symbols BTC ETH
-    python -m ingestion.download --start 2020-01 --end 2024-12          # all 5 assets
-
-No API key / auth required. Months that don't exist yet (e.g. SOL before its
-listing) are skipped gracefully.
-"""
+"""Download Binance 1m klines using binance-historical-data and load to PostgreSQL."""
 from __future__ import annotations
 
 import argparse
-import io
+import os
 import sys
-import zipfile
+import pandas as pd
+import psycopg2
+import psycopg2.extras
 from datetime import date
 
-import duckdb
-import pandas as pd
-import requests
+# The package promised in the project proposal Tech Stack table
+from binance_historical_data import BinanceDataDumper
 
-from app.config import ASSETS, DB_PATH, SYMBOLS, VISION_BASE
-
-# Raw Binance kline CSV columns (older monthly files ship without a header).
-_RAW_COLS = [
-    "open_time", "open", "high", "low", "close", "volume",
-    "close_time", "quote_volume", "count",
-    "taker_buy_volume", "taker_buy_quote_volume", "ignore",
-]
+from app.config import ASSETS, SYMBOLS, DATA_DIR, DATABASE_URL
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS klines_1m (
-    symbol       VARCHAR NOT NULL,
+    symbol       VARCHAR(10) NOT NULL,
     ts           TIMESTAMP NOT NULL,
-    open         DOUBLE,
-    high         DOUBLE,
-    low          DOUBLE,
-    close        DOUBLE,
-    volume       DOUBLE,
-    quote_volume DOUBLE,
+    open         DOUBLE PRECISION,
+    high         DOUBLE PRECISION,
+    low          DOUBLE PRECISION,
+    close        DOUBLE PRECISION,
+    volume       DOUBLE PRECISION,
+    quote_volume DOUBLE PRECISION,
     trades       BIGINT,
     PRIMARY KEY (symbol, ts)
 );
 """
 
+def _parse_csv_to_tuples(filepath: str, symbol: str) -> list[tuple]:
+    cols = ["open_time", "open", "high", "low", "close", "volume", 
+            "close_time", "quote_volume", "count", "taker_buy_volume", 
+            "taker_buy_quote_volume", "ignore"]
+    
+    with open(filepath, 'r') as f:
+        first_line = f.readline().lower()
+    has_header = "open_time" in first_line
 
-def _month_range(start: str, end: str) -> list[str]:
-    """Inclusive list of 'YYYY-MM' strings between start and end."""
-    sy, sm = map(int, start.split("-"))
-    ey, em = map(int, end.split("-"))
-    out: list[str] = []
-    y, m = sy, sm
-    while (y, m) <= (ey, em):
-        out.append(f"{y:04d}-{m:02d}")
-        m += 1
-        if m > 12:
-            m, y = 1, y + 1
-    return out
-
-
-def _parse_ts(series: pd.Series) -> pd.Series:
-    """Convert Binance open_time to UTC-naive datetime, auto-detecting the unit.
-
-    Historical files use milliseconds; some 2025+ files switched to microseconds.
-    Detect by magnitude of the first value.
-    """
-    sample = float(series.iloc[0])
+    df = pd.read_csv(filepath, names=cols, header=0 if has_header else None)
+    
+    sample = float(df["open_time"].iloc[0])
     unit = "us" if sample > 1e14 else "ms"
-    return pd.to_datetime(series.astype("int64"), unit=unit)
-
-
-def _read_csv_from_zip(content: bytes) -> pd.DataFrame:
-    with zipfile.ZipFile(io.BytesIO(content)) as zf:
-        raw = zf.read(zf.namelist()[0])
-    has_header = raw[:9].lower().startswith(b"open_time")
-    return pd.read_csv(
-        io.BytesIO(raw),
-        header=0 if has_header else None,
-        names=None if has_header else _RAW_COLS,
-    )
-
-
-def _fetch_month(symbol: str, pair: str, ym: str, session: requests.Session) -> pd.DataFrame | None:
-    url = f"{VISION_BASE}/{pair}/1m/{pair}-1m-{ym}.zip"
-    resp = session.get(url, timeout=60)
-    if resp.status_code == 404:
-        return None
-    resp.raise_for_status()
-
-    df = _read_csv_from_zip(resp.content)
-    df = df[["open_time", "open", "high", "low", "close", "volume", "quote_volume", "count"]].copy()
-    df["ts"] = _parse_ts(df["open_time"])
+    df["ts"] = pd.to_datetime(df["open_time"].astype("int64"), unit=unit)
+    
     df.insert(0, "symbol", symbol)
-    df = df.drop(columns=["open_time"]).rename(columns={"count": "trades"})
-    return df[["symbol", "ts", "open", "high", "low", "close", "volume", "quote_volume", "trades"]]
-
+    df.rename(columns={"count": "trades"}, inplace=True)
+    
+    subset = df[["symbol", "ts", "open", "high", "low", "close", "volume", "quote_volume", "trades"]]
+    return [tuple(x) for x in subset.to_numpy()]
 
 def ingest(symbols: list[str], start: str, end: str) -> None:
-    con = duckdb.connect(str(DB_PATH))
-    con.execute(SCHEMA)
-    session = requests.Session()
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute(SCHEMA)
+    conn.commit()
 
-    months = _month_range(start, end)
+    dump_dir = os.path.join(DATA_DIR, "binance_dump")
+    start_date = date(int(start.split("-")[0]), int(start.split("-")[1]), 1)
+    end_date = date(int(end.split("-")[0]), int(end.split("-")[1]), 28)
+
+    data_dumper = BinanceDataDumper(
+        path_dir_where_to_dump=dump_dir,
+        asset_class="spot",
+        data_type="klines",
+        data_frequency="1m",
+    )
+
     total_rows = 0
+    insert_query = """
+        INSERT INTO klines_1m (symbol, ts, open, high, low, close, volume, quote_volume, trades)
+        VALUES %s ON CONFLICT (symbol, ts) DO NOTHING
+    """
+
     for symbol in symbols:
         pair = ASSETS[symbol]
-        for ym in months:
-            try:
-                df = _fetch_month(symbol, pair, ym, session)
-            except Exception as exc:  # noqa: BLE001
-                print(f"  ! {symbol} {ym}: {exc}", file=sys.stderr)
-                continue
-            if df is None or df.empty:
-                print(f"  - {symbol} {ym}: not available, skipped")
-                continue
-            con.register("_incoming", df)
-            con.execute(
-                "INSERT INTO klines_1m "
-                "SELECT * FROM _incoming "
-                "WHERE (symbol, ts) NOT IN (SELECT symbol, ts FROM klines_1m)"
-            )
-            con.unregister("_incoming")
-            total_rows += len(df)
-            print(f"  + {symbol} {ym}: {len(df):>6} rows")
-
-    n = con.execute("SELECT count(*) FROM klines_1m").fetchone()[0]
-    con.close()
-    print(f"\nDone. Ingested {total_rows} rows this run; {n} total in {DB_PATH.name}.")
-
+        print(f"Downloading {pair} via binance-historical-data...")
+        
+        data_dumper.dump_data(
+            tickers=[pair],
+            date_start=start_date,
+            date_end=end_date,
+            is_to_update_existing=False
+        )
+        
+        pair_dir = os.path.join(dump_dir, "spot", "monthly", "klines", pair, "1m")
+        if not os.path.exists(pair_dir):
+            continue
+            
+        csv_files = [f for f in os.listdir(pair_dir) if f.endswith('.zip') or f.endswith('.csv')]
+        
+        print(f"Loading {len(csv_files)} files into PostgreSQL for {symbol}...")
+        for file in csv_files:
+            filepath = os.path.join(pair_dir, file)
+            data_tuples = _parse_csv_to_tuples(filepath, symbol)
+            
+            psycopg2.extras.execute_values(cur, insert_query, data_tuples)
+            conn.commit()
+            total_rows += len(data_tuples)
+                
+    cur.close()
+    conn.close()
+    print(f"\nDone. Ingested {total_rows} total rows into PostgreSQL.")
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Download Binance 1m klines into DuckDB.")
+    p = argparse.ArgumentParser(description="Download Binance 1m klines into PostgreSQL.")
     p.add_argument("--start", required=True, help="start month, YYYY-MM")
     p.add_argument("--end", default=date.today().strftime("%Y-%m"), help="end month, YYYY-MM")
     p.add_argument("--symbols", nargs="*", default=SYMBOLS, help=f"subset of {SYMBOLS}")
@@ -141,7 +116,6 @@ def main() -> None:
 
     print(f"Ingesting {args.symbols} for {args.start}..{args.end}")
     ingest(args.symbols, args.start, args.end)
-
 
 if __name__ == "__main__":
     main()

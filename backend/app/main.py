@@ -1,15 +1,4 @@
-"""CryptoLens REST API (FastAPI).
-
-Endpoints (all under /api):
-    GET /health
-    GET /meta                         coverage + symbols + suggested default window
-    GET /ohlcv                        candlesticks at a resolution (auto by default)
-    GET /volatility                   risk report + normal/stress/crash scenarios
-    GET /correlation                  5x5 correlation matrix for a window
-    GET /correlation/pair             rolling correlation for one pair
-    GET /patterns                     what-if pattern back-test
-    GET /depth                        reconstructed historical order book
-"""
+"""CryptoLens REST API (FastAPI)."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -58,7 +47,6 @@ def health():
 @app.get("/api/meta")
 def meta():
     cov = _guard_data()
-    # Suggested default window: last 6 months of whatever data exists.
     ends = [datetime.fromisoformat(c["end"]) for c in cov if c["rows"]]
     starts = [datetime.fromisoformat(c["start"]) for c in cov if c["rows"]]
     default = None
@@ -82,9 +70,11 @@ def ohlcv(
     end: datetime = Query(...),
     resolution: str = Query("auto"),
 ):
+    start = start.replace(tzinfo=None)
+    end = end.replace(tzinfo=None)
+    
     if symbol not in ASSETS:
         raise HTTPException(400, f"unknown symbol {symbol}; choose from {SYMBOLS}")
-    # Price chart gets weekly/monthly tiers so multi-year spans stay readable.
     res = _resolve_resolution(resolution, start, end, coarse_ok=True)
     try:
         df = store.ohlcv(symbol, start, end, res)
@@ -110,6 +100,9 @@ def volatility(
     end: datetime = Query(...),
     resolution: str = Query("auto"),
 ):
+    start = start.replace(tzinfo=None)
+    end = end.replace(tzinfo=None)
+    
     if symbol not in ASSETS:
         raise HTTPException(400, f"unknown symbol {symbol}")
     res = _resolve_resolution(resolution, start, end)
@@ -132,6 +125,9 @@ def correlation(
     end: datetime = Query(...),
     resolution: str = Query("auto"),
 ):
+    start = start.replace(tzinfo=None)
+    end = end.replace(tzinfo=None)
+    
     _guard_data()
     res = _resolve_resolution(resolution, start, end)
     wide = store.closes(SYMBOLS, start, end, res)
@@ -151,11 +147,18 @@ def correlation_pair(
     resolution: str = Query("auto"),
     window: int = Query(30, ge=3, le=500),
 ):
+    start = start.replace(tzinfo=None)
+    end = end.replace(tzinfo=None)
+    
     for s in (a, b):
         if s not in ASSETS:
             raise HTTPException(400, f"unknown symbol {s}")
     res = _resolve_resolution(resolution, start, end)
-    wide = store.closes([a, b], start, end, res)
+    try:
+        wide = store.closes([a, b], start, end, res)
+    except store.DataUnavailable as exc:
+        raise HTTPException(503, str(exc))
+        
     if wide.empty or a not in wide or b not in wide:
         raise HTTPException(422, "no overlapping data for this pair in the window")
     result = stats.rolling_correlation(wide[a], wide[b], window)
@@ -167,19 +170,28 @@ def correlation_pair(
 def patterns(
     symbol: str = Query(...),
     direction: str = Query("drop", pattern="^(drop|spike)$"),
-    threshold: float = Query(0.05, gt=0, le=0.9, description="fractional move, e.g. 0.05 = 5%"),
+    threshold: float = Query(0.05, gt=0, le=0.9),
     lookback: int = Query(1, ge=1, le=500),
     horizon: int = Query(24, ge=1, le=500),
     resolution: str = Query("1h"),
     start: datetime | None = Query(None),
     end: datetime | None = Query(None),
 ):
+    if start:
+        start = start.replace(tzinfo=None)
+    if end:
+        end = end.replace(tzinfo=None)
+        
     if symbol not in ASSETS:
         raise HTTPException(400, f"unknown symbol {symbol}")
     if resolution not in RESOLUTIONS:
         raise HTTPException(400, f"resolution must be one of {list(RESOLUTIONS)}")
 
-    rng = store.full_range(symbol)
+    try:
+        rng = store.full_range(symbol)
+    except store.DataUnavailable as exc:
+        raise HTTPException(503, str(exc))
+        
     if rng is None:
         raise HTTPException(503, "no data for this symbol — run the ingestion first")
     lo, hi = rng
@@ -205,15 +217,23 @@ def depth(
     symbol: str = Query(...),
     at: datetime | None = Query(None, description="timestamp; defaults to latest bar"),
 ):
+    if at:
+        at = at.replace(tzinfo=None)
+        
     if symbol not in ASSETS:
         raise HTTPException(400, f"unknown symbol {symbol}")
-    rng = store.full_range(symbol)
+        
+    try:
+        rng = store.full_range(symbol)
+    except store.DataUnavailable as exc:
+        raise HTTPException(503, str(exc))
+        
     if rng is None:
         raise HTTPException(503, "no data for this symbol — run the ingestion first")
     lo, hi = rng
     at = at or hi
     at = min(max(at, lo), hi)
-    # Use a short trailing window around `at` to get price + recent volume.
+    
     df = store.ohlcv(symbol, at - timedelta(hours=1), at, "1m")
     if df.empty:
         df = store.ohlcv(symbol, lo, hi, "1d").tail(1)

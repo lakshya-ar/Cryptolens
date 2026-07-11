@@ -8,11 +8,10 @@ PROJECT_DIR = BACKEND_DIR.parent
 DATA_DIR = PROJECT_DIR / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-# CRYPTOLENS_DB lets a deploy point at a persistent-disk path (e.g. on Render).
-DB_PATH = Path(os.environ["CRYPTOLENS_DB"]) if os.environ.get("CRYPTOLENS_DB") else DATA_DIR / "cryptolens.duckdb"
+# PostgreSQL Connection String 
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:password@localhost:5432/cryptolens")
 
-# Comma-separated allowed CORS origins, or "*" for any (default). Set this to
-# the Vercel frontend URL in production if you want to lock it down.
+# Comma-separated allowed CORS origins
 CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*")
 
 # Assets --------------------------------------------------------------------
@@ -27,9 +26,6 @@ ASSETS: dict[str, str] = {
 SYMBOLS = list(ASSETS.keys())
 
 # Resolutions ---------------------------------------------------------------
-# Value is the DuckDB time_bucket interval. 1w/1mo power the Time Machine's
-# semantic zoom (readable candle counts across multi-year spans); the stats
-# endpoints stay capped at 1d.
 RESOLUTIONS = {
     "1m": "1 minute",
     "1h": "1 hour",
