@@ -1,7 +1,10 @@
-// In production (Vercel) set VITE_API_BASE to the Render backend, e.g.
-// "https://cryptolens-api.onrender.com/api". Locally it falls back to the
-// Vite dev proxy at "/api".
-const BASE = import.meta.env.VITE_API_BASE || "/api";
+// Grab the base URL injected by Render, or default to local proxy
+let BASE = import.meta.env.VITE_API_BASE || "/api";
+
+// If Render injected the root URL (http...), ensure it ends with '/api'
+if (BASE.startsWith('http') && !BASE.endsWith('/api')) {
+  BASE += '/api';
+}
 
 async function get(path, params = {}) {
   const entries = Object.entries(params).filter(([, v]) => v != null && v !== "");
