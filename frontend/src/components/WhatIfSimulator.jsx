@@ -98,7 +98,7 @@ export default function WhatIfSimulator({ index = 0 }) {
   return (
     <Panel
       index={index}
-      className="span-2"
+      className="span-3"
       title="The What-If Simulator"
       subtitle={`pattern tester · ${inWindow ? "selected window" : "all history"}`}
     >

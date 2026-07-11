@@ -33,9 +33,11 @@ app.add_middleware(
 )
 
 
-def _resolve_resolution(resolution: str, start: datetime, end: datetime) -> str:
+def _resolve_resolution(
+    resolution: str, start: datetime, end: datetime, coarse_ok: bool = False
+) -> str:
     if resolution == "auto":
-        return store.pick_resolution(start, end)
+        return store.pick_resolution(start, end, coarse_ok)
     if resolution not in RESOLUTIONS:
         raise HTTPException(400, f"resolution must be 'auto' or one of {list(RESOLUTIONS)}")
     return resolution
@@ -82,7 +84,8 @@ def ohlcv(
 ):
     if symbol not in ASSETS:
         raise HTTPException(400, f"unknown symbol {symbol}; choose from {SYMBOLS}")
-    res = _resolve_resolution(resolution, start, end)
+    # Price chart gets weekly/monthly tiers so multi-year spans stay readable.
+    res = _resolve_resolution(resolution, start, end, coarse_ok=True)
     try:
         df = store.ohlcv(symbol, start, end, res)
     except store.DataUnavailable as exc:

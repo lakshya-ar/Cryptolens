@@ -116,7 +116,7 @@ export default function MarketDepth({ index = 0 }) {
     <Panel
       index={index}
       glow={mode === "live" && wsState === "live" ? "ok" : undefined}
-      className="span-2"
+      className="span-3"
       title="Market Depth"
       subtitle={book?.mid ? `mid $${Number(book.mid).toLocaleString()}` : "order book"}
       actions={

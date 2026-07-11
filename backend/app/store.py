@@ -51,9 +51,30 @@ def coverage() -> list[dict]:
     return df.to_dict("records")
 
 
-def pick_resolution(start: datetime, end: datetime) -> str:
-    """Auto-select candle resolution from the selected window length."""
+def pick_resolution(start: datetime, end: datetime, coarse_ok: bool = False) -> str:
+    """Auto-select candle resolution from the selected window length.
+
+    coarse_ok=True (the price chart) unlocks weekly/monthly buckets so any span
+    renders as a readable ~30-90 candles — semantic zoom:
+        > ~1.1y  -> monthly   (5y  ≈ 60 candles)
+        ~2.5mo-1.1y -> weekly (1y  ≈ 52 candles)
+        ~8-75d   -> daily     (1mo ≈ 30 candles)
+        ~1-8d    -> hourly     (1d  ≈ 24 candles)
+        < 1d     -> minute
+    coarse_ok=False (volatility/correlation) keeps the original tiers capped at
+    daily — monthly returns give too few points for meaningful risk/corr math.
+    """
     span_days = (end - start).total_seconds() / 86400
+    if coarse_ok:
+        if span_days > 400:
+            return "1mo"
+        if span_days > 75:
+            return "1w"
+        if span_days > 8:
+            return "1d"
+        if span_days > 0.9:
+            return "1h"
+        return "1m"
     if span_days <= 3:
         return "1m"
     if span_days <= 60:

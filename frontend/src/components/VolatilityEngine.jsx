@@ -125,7 +125,7 @@ export default function VolatilityEngine({ index = 0 }) {
     <Panel
       index={index}
       glow={data ? SCEN_GLOW[scenario] : undefined}
-      className="span-2"
+      className="span-3"
       title="Volatility Engine"
       subtitle={data ? `ann. vol ${pct(data.annualized_vol)}` : "risk analytics"}
       actions={

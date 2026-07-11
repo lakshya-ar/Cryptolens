@@ -109,7 +109,7 @@ export default function CorrelationMatrix({ index = 0 }) {
   return (
     <Panel
       index={index}
-      className="span-2"
+      className="span-3"
       title="Correlation Matrix"
       subtitle={matrix.data ? `${matrix.data.resolution} returns · all assets` : "cross-asset"}
       actions={

@@ -11,9 +11,29 @@ import { COLORS, ASSET_COLOR, baseLayout, plotConfig } from "../theme";
  * shared window; the detail panel renders candlesticks + volume at the
  * auto-selected resolution.
  */
+// Quick-zoom presets. The backend maps each resulting span to a readable
+// candle resolution (5Y→monthly, 1Y→weekly, 1M→daily, 1W/1D→hourly).
+const PRESETS = [
+  { label: "5Y", days: 5 * 365 },
+  { label: "1Y", days: 365 },
+  { label: "1M", days: 30 },
+  { label: "1W", days: 7 },
+  { label: "1D", days: 1 },
+];
+const RES_LABEL = { "1mo": "monthly", "1w": "weekly", "1d": "daily", "1h": "hourly", "1m": "1-min" };
+
 export default function TimeMachine({ index = 0 }) {
   const { asset, meta, window, setWindow, events } = useApp();
   const cov = meta?.coverage?.find((c) => c.symbol === asset);
+
+  // Jump the shared window to the last `days` of available data.
+  const applyPreset = (days) => {
+    if (!cov) return;
+    const end = new Date(cov.end.replace(" ", "T"));
+    const lo = new Date(cov.start.replace(" ", "T"));
+    const start = new Date(Math.max(lo.getTime(), end.getTime() - days * 86400000));
+    setWindow({ start: start.toISOString(), end: end.toISOString() });
+  };
 
   const overview = useFetch(
     () => api.ohlcv({ symbol: asset, start: cov.start, end: cov.end, resolution: "1d" }),
@@ -55,7 +75,7 @@ export default function TimeMachine({ index = 0 }) {
       },
     ],
     layout: baseLayout({
-      height: 96,
+      height: 110,
       dragmode: false,
       uirevision: asset,
       // Same left/right margins as the detail chart so both x-axes align.
@@ -123,7 +143,7 @@ export default function TimeMachine({ index = 0 }) {
         : []),
     ],
     layout: baseLayout({
-      height: 216,
+      height: 384,
       uirevision: "detail",
       margin: { l: 54, r: 12, t: 4, b: 22 },
       xaxis: { type: "date", gridcolor: COLORS.grid, rangeslider: { visible: false } },
@@ -135,9 +155,18 @@ export default function TimeMachine({ index = 0 }) {
   return (
     <Panel
       index={index}
-      className="span-4"
+      className="span-6"
       title="The Time Machine"
-      subtitle={`Temporal explorer · ${detail.data?.resolution ?? "…"} candles · drag the slider to brush every view`}
+      subtitle={`Temporal explorer · ${RES_LABEL[detail.data?.resolution] ?? "…"} candles · brush the slider or use the presets`}
+      actions={
+        <div className="seg">
+          {PRESETS.map((p) => (
+            <button key={p.label} onClick={() => applyPreset(p.days)} disabled={!cov}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      }
     >
       <Status loading={overview.loading} error={overview.error}>
         <Plot

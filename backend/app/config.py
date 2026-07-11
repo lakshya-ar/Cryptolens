@@ -27,10 +27,15 @@ ASSETS: dict[str, str] = {
 SYMBOLS = list(ASSETS.keys())
 
 # Resolutions ---------------------------------------------------------------
+# Value is the DuckDB time_bucket interval. 1w/1mo power the Time Machine's
+# semantic zoom (readable candle counts across multi-year spans); the stats
+# endpoints stay capped at 1d.
 RESOLUTIONS = {
     "1m": "1 minute",
     "1h": "1 hour",
     "1d": "1 day",
+    "1w": "1 week",
+    "1mo": "1 month",
 }
 
 # Binance public data portal

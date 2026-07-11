@@ -9,9 +9,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sps
 
-# Trading periods per year (crypto trades 24/7/365).
-PERIODS_PER_YEAR = {"1m": 525_600, "1h": 8_760, "1d": 365}
-_ROLL_WIN = {"1m": 60, "1h": 24, "1d": 30}
+# Trading periods per year (crypto trades 24/7/365). 1w/1mo are here so an
+# explicit coarse-resolution request doesn't KeyError; "auto" never picks them
+# for stats (pick_resolution caps stats at daily).
+PERIODS_PER_YEAR = {"1m": 525_600, "1h": 8_760, "1d": 365, "1w": 52, "1mo": 12}
+_ROLL_WIN = {"1m": 60, "1h": 24, "1d": 30, "1w": 8, "1mo": 6}
 _DROP_THRESHOLDS = [0.05, 0.10, 0.15, 0.20]
 
 
