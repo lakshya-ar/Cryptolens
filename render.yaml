@@ -14,9 +14,10 @@ services:
     region: singapore
     rootDir: backend
     # Data is baked into the deploy at build time so no external DB is needed.
-    # 2023-01..2024-12 ≈ 5M rows and builds in ~10-15 min on the free plan.
-    # The full proposal range is 2020-01..2024-12 (~10.5M rows) — try it, but
-    # if the free-tier build times out, fall back to two years.
+    # Full 5-year proposal range: 2020-01..2024-12, ~10.5M rows. Verified
+    # locally (12.8M rows across 5 assets, SOL starting at its Aug-2020
+    # listing). Build takes noticeably longer on the free plan — if it times
+    # out, fall back to a shorter range (e.g. "2023-01").
     buildCommand: >-
       pip install -r requirements.txt &&
       python -m ingestion.download --start "$INGEST_START" --end "$INGEST_END"
@@ -26,7 +27,7 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.7"
       - key: INGEST_START
-        value: "2023-01"
+        value: "2020-01"
       - key: INGEST_END
         value: "2024-12"
       - key: CORS_ORIGINS
