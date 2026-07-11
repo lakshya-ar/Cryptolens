@@ -1,8 +1,10 @@
-// Grab the base URL injected by Render, or default to local proxy
+// Grab the host injected by Render, or default to local proxy
 let BASE = import.meta.env.VITE_API_BASE || "/api";
 
-// If Render injected the root URL (http...), ensure it ends with '/api'
-if (BASE.startsWith('http') && !BASE.endsWith('/api')) {
+// If Render injected a raw hostname, format it into a proper HTTPS URL with /api
+if (BASE && !BASE.startsWith('http') && !BASE.startsWith('/')) {
+  BASE = `https://${BASE}/api`;
+} else if (BASE.startsWith('http') && !BASE.endsWith('/api')) {
   BASE += '/api';
 }
 
@@ -32,6 +34,10 @@ export const api = {
   depth: (p) => get("/depth", p),
 };
 
-// In production set VITE_WS_URL to the Render ws-server over TLS, e.g.
-// "wss://cryptolens-ws.onrender.com".
-export const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8080";
+// Handle WebSocket host injection
+let WS = import.meta.env.VITE_WS_URL || "ws://localhost:8080";
+if (WS && !WS.startsWith('ws')) {
+  WS = `wss://${WS}`;
+}
+
+export const WS_URL = WS;

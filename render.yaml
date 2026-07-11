@@ -15,10 +15,7 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.7"
       - key: CORS_ORIGINS
-        fromService:
-          type: web
-          name: cryptolens-frontend
-          property: url
+        value: "*" 
       # MUST SET DATABASE_URL IN RENDER DASHBOARD MANUALLY 
       # TO POINT TO YOUR PROVISIONED POSTGRESQL INSTANCE
 
@@ -41,7 +38,6 @@ services:
     name: cryptolens-frontend
     runtime: static
     plan: free
-    region: singapore
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
@@ -50,9 +46,9 @@ services:
         fromService:
           type: web
           name: cryptolens-api
-          property: url
+          property: host
       - key: VITE_WS_URL
         fromService:
           type: web
           name: cryptolens-ws
-          property: url
+          property: host
