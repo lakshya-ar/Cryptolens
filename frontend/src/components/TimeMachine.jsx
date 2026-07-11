@@ -12,7 +12,7 @@ import { COLORS, ASSET_COLOR, baseLayout, plotConfig } from "../theme";
  * auto-selected resolution.
  */
 export default function TimeMachine({ index = 0 }) {
-  const { asset, meta, window, setWindow } = useApp();
+  const { asset, meta, window, setWindow, events } = useApp();
   const cov = meta?.coverage?.find((c) => c.symbol === asset);
 
   const overview = useFetch(
@@ -71,6 +71,18 @@ export default function TimeMachine({ index = 0 }) {
   };
 
   const dc = detail.data?.candles ?? [];
+
+  // What-If trigger timestamps that fall inside the current window, drawn as
+  // markers above the candles (linked view: the pattern scan annotates the
+  // timeline).
+  const t0 = new Date(window.start).getTime();
+  const t1 = new Date(window.end).getTime();
+  const evTs = (events ?? []).filter((t) => {
+    const x = new Date(t.replace(" ", "T")).getTime();
+    return x >= t0 && x <= t1;
+  });
+  const maxHigh = dc.length ? Math.max(...dc.map((c) => c.high)) : 0;
+
   const detailFig = {
     data: [
       {
@@ -95,6 +107,20 @@ export default function TimeMachine({ index = 0 }) {
         },
         yaxis: "y2",
       },
+      ...(evTs.length && dc.length
+        ? [
+            {
+              type: "scatter",
+              mode: "markers",
+              x: evTs,
+              y: evTs.map(() => maxHigh * 1.02),
+              marker: { symbol: "triangle-down", size: 7, color: "#9a6700" },
+              name: "what-if trigger",
+              hovertemplate: "What-If trigger  %{x|%b %d, %H:%M}<extra></extra>",
+              yaxis: "y",
+            },
+          ]
+        : []),
     ],
     layout: baseLayout({
       height: 216,

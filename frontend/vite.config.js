@@ -15,7 +15,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           plotly: ["plotly.js-dist-min"],
-          three: ["three", "@react-three/fiber", "@react-three/drei"],
           motion: ["framer-motion"],
         },
       },

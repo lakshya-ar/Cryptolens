@@ -18,6 +18,7 @@ const SCEN_GLOW = { normal: "ok", stress: "warn", crash: "crit" };
 export default function VolatilityEngine({ index = 0 }) {
   const { asset, window } = useApp();
   const [scenario, setScenario] = useState("normal");
+  const [tab, setTab] = useState("risk");
 
   const { data, loading, error } = useFetch(
     () => api.volatility({ symbol: asset, start: window.start, end: window.end, resolution: "auto" }),
@@ -67,6 +68,59 @@ export default function VolatilityEngine({ index = 0 }) {
     }),
   };
 
+  // Return distribution: observed histogram vs the normal fit at the same
+  // mean/std — the visible gap in the tails is what kurtosis measures.
+  const hist = data?.histogram;
+  const centers = hist
+    ? hist.bins.slice(0, -1).map((b, i) => ((b + hist.bins[i + 1]) / 2) * 100)
+    : [];
+  const binW = hist && hist.bins.length > 1 ? hist.bins[1] - hist.bins[0] : 0;
+  const mu = data?.distribution?.mean ?? 0;
+  const sd = data?.distribution?.std ?? 1;
+  const nObs = data?.distribution?.n ?? 0;
+  const normY = centers.map((cPct) => {
+    const x = cPct / 100;
+    const pdf = Math.exp(-((x - mu) ** 2) / (2 * sd * sd)) / (sd * Math.sqrt(2 * Math.PI));
+    return pdf * nObs * binW;
+  });
+  const distFig = {
+    data: [
+      {
+        type: "bar",
+        x: centers,
+        y: hist?.counts ?? [],
+        marker: { color: "rgba(9,105,218,0.55)" },
+        name: "observed",
+        hovertemplate: "%{x:.2f}%: %{y} bars<extra>observed</extra>",
+      },
+      {
+        type: "scatter",
+        mode: "lines",
+        x: centers,
+        y: normY,
+        line: { color: COLORS.warn, width: 1.5 },
+        name: "normal fit",
+        hovertemplate: "%{x:.2f}%: %{y:.1f}<extra>normal fit</extra>",
+      },
+    ],
+    layout: baseLayout({
+      height: 232,
+      margin: { l: 46, r: 10, t: 6, b: 30 },
+      bargap: 0,
+      showlegend: true,
+      legend: {
+        orientation: "h", x: 1, xanchor: "right", y: 1.1, yanchor: "bottom",
+        font: { size: 10, color: COLORS.muted }, bgcolor: "rgba(0,0,0,0)",
+      },
+      xaxis: {
+        title: { text: `single ${data?.resolution ?? ""} bar log return`, font: { size: 10 } },
+        ticksuffix: "%",
+        gridcolor: COLORS.grid,
+      },
+      yaxis: { title: { text: "count", font: { size: 10 } }, gridcolor: COLORS.grid },
+    }),
+  };
+
   return (
     <Panel
       index={index}
@@ -75,26 +129,47 @@ export default function VolatilityEngine({ index = 0 }) {
       title="Volatility Engine"
       subtitle={data ? `ann. vol ${pct(data.annualized_vol)}` : "risk analytics"}
       actions={
-        <div className="seg">
-          {SCENARIOS.map((s) => (
-            <button key={s} className={scenario === s ? "active" : ""} onClick={() => setScenario(s)}>
-              {s}
+        <>
+          <div className="seg">
+            <button className={tab === "risk" ? "active" : ""} onClick={() => setTab("risk")}>
+              risk
             </button>
-          ))}
-        </div>
+            <button className={tab === "dist" ? "active" : ""} onClick={() => setTab("dist")}>
+              dist
+            </button>
+          </div>
+          <div className="seg">
+            {SCENARIOS.map((s) => (
+              <button key={s} className={scenario === s ? "active" : ""} onClick={() => setScenario(s)}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </>
       }
     >
       <Status loading={loading} error={error} empty={data && !data.scenarios}>
         {data && (
           <>
-            <div style={{ color: COLORS.muted, fontSize: 11, margin: "2px 0 2px" }}>
-              Rolling annualized volatility
-            </div>
-            <Plot data={rollFig.data} layout={rollFig.layout} config={plotConfig} style={{ width: "100%" }} useResizeHandler />
-            <div style={{ color: COLORS.muted, fontSize: 11, margin: "6px 0 2px" }}>
-              P(drop ≥ threshold) — <b style={{ color: SCEN_COLOR[scenario] }}>{scenario}</b> scenario
-            </div>
-            <Plot data={probFig.data} layout={probFig.layout} config={plotConfig} style={{ width: "100%" }} useResizeHandler />
+            {tab === "risk" ? (
+              <>
+                <div style={{ color: COLORS.muted, fontSize: 11, margin: "2px 0 2px" }}>
+                  Rolling annualized volatility
+                </div>
+                <Plot data={rollFig.data} layout={rollFig.layout} config={plotConfig} style={{ width: "100%" }} useResizeHandler />
+                <div style={{ color: COLORS.muted, fontSize: 11, margin: "6px 0 2px" }}>
+                  P(drop ≥ threshold) — <b style={{ color: SCEN_COLOR[scenario] }}>{scenario}</b> scenario
+                </div>
+                <Plot data={probFig.data} layout={probFig.layout} config={plotConfig} style={{ width: "100%" }} useResizeHandler />
+              </>
+            ) : (
+              <>
+                <div style={{ color: COLORS.muted, fontSize: 11, margin: "2px 0 2px" }}>
+                  Return distribution — observed vs normal fit (fatter tails ⇒ more extreme moves)
+                </div>
+                <Plot data={distFig.data} layout={distFig.layout} config={plotConfig} style={{ width: "100%" }} useResizeHandler />
+              </>
+            )}
             <div className="stats-row">
               <Stat label="VaR 95%" num={sc?.var95} format={(v) => `${(v * 100).toFixed(1)}%`} tone="down" />
               <Stat label="VaR 99%" num={sc?.var99} format={(v) => `${(v * 100).toFixed(1)}%`} tone="down" />

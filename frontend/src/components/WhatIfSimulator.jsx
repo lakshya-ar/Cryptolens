@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plot } from "../plot.jsx";
 import { Panel, Status, Stat } from "./ui.jsx";
 import { useApp } from "../state.jsx";
@@ -9,21 +9,25 @@ import { COLORS, baseLayout, plotConfig } from "../theme";
 const pct = (x) => (x == null ? "—" : `${(x * 100).toFixed(2)}%`);
 
 /**
- * View 3 — The What-If Simulator: pattern hypothesis tester. Scans all history
- * for a trigger (e.g. a sharp hourly drop) and shows the distribution of
- * forward price paths after each occurrence.
+ * View 3 — The What-If Simulator: pattern hypothesis tester. Scans history
+ * (all of it, or just the brushed window) for a trigger and shows the
+ * distribution of forward price paths after each occurrence. Trigger
+ * timestamps are shared with the Time Machine, which marks them on the
+ * candlestick chart.
  */
 export default function WhatIfSimulator({ index = 0 }) {
-  const { asset } = useApp();
+  const { asset, window, setEvents } = useApp();
   const [form, setForm] = useState({
     direction: "drop",
     thresholdPct: 2,
     lookback: 1,
     horizon: 24,
     resolution: "1h",
+    scope: "all",
   });
   const [submitted, setSubmitted] = useState(form);
 
+  const inWindow = submitted.scope === "window";
   const { data, loading, error } = useFetch(
     () =>
       api.patterns({
@@ -33,9 +37,15 @@ export default function WhatIfSimulator({ index = 0 }) {
         lookback: submitted.lookback,
         horizon: submitted.horizon,
         resolution: submitted.resolution,
+        ...(inWindow ? { start: window.start, end: window.end } : {}),
       }),
-    [asset, submitted]
+    [asset, submitted, inWindow ? window.start : null, inWindow ? window.end : null]
   );
+
+  // Share trigger timestamps so the Time Machine can mark them on the chart.
+  useEffect(() => {
+    setEvents(data?.sample_events ?? []);
+  }, [data, setEvents]);
 
   const upd = (k) => (e) =>
     setForm((f) => ({ ...f, [k]: e.target.type === "number" ? +e.target.value : e.target.value }));
@@ -90,7 +100,7 @@ export default function WhatIfSimulator({ index = 0 }) {
       index={index}
       className="span-2"
       title="The What-If Simulator"
-      subtitle="pattern tester · all history"
+      subtitle={`pattern tester · ${inWindow ? "selected window" : "all history"}`}
     >
       <div className="controls">
         <div className="field">
@@ -118,6 +128,13 @@ export default function WhatIfSimulator({ index = 0 }) {
             <option value="1h">1h</option>
             <option value="1d">1d</option>
             <option value="1m">1m</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>scan</label>
+          <select value={form.scope} onChange={upd("scope")}>
+            <option value="all">all history</option>
+            <option value="window">selected window</option>
           </select>
         </div>
         <button className="btn" onClick={() => setSubmitted({ ...form })}>

@@ -4,13 +4,19 @@
 # Create both services at once: Render Dashboard → New → Blueprint → pick this repo.
 services:
   # --- FastAPI REST API + DuckDB -------------------------------------------
+  # NOTE: `region` is immutable on an existing Render service. To apply it,
+  # delete the old Oregon services in the dashboard and re-sync this
+  # Blueprint (data is rebuilt from Binance at build time, nothing is lost).
   - type: web
     name: cryptolens-api
     runtime: python
     plan: free
+    region: singapore
     rootDir: backend
     # Data is baked into the deploy at build time so no external DB is needed.
-    # Widen INGEST_START/END to load more history (longer builds).
+    # 2023-01..2024-12 ≈ 5M rows and builds in ~10-15 min on the free plan.
+    # The full proposal range is 2020-01..2024-12 (~10.5M rows) — try it, but
+    # if the free-tier build times out, fall back to two years.
     buildCommand: >-
       pip install -r requirements.txt &&
       python -m ingestion.download --start "$INGEST_START" --end "$INGEST_END"
@@ -20,17 +26,21 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.7"
       - key: INGEST_START
-        value: "2024-01"
+        value: "2023-01"
       - key: INGEST_END
-        value: "2024-03"
+        value: "2024-12"
       - key: CORS_ORIGINS
         value: "*"
 
   # --- Node WebSocket relay for the live order book ------------------------
+  # Must NOT run in a US region: Binance rejects WebSocket connections from
+  # US IPs (HTTP 451), which silently kills live mode. Singapore works and
+  # is closest to the demo audience.
   - type: web
     name: cryptolens-ws
     runtime: node
     plan: free
+    region: singapore
     rootDir: ws-server
     buildCommand: npm install
     startCommand: node server.js

@@ -11,9 +11,11 @@ export function AppStateProvider({ children }) {
   const [window, setWindow] = useState(null);
   // Pair selected in the correlation matrix for drill-down: [a, b] or null.
   const [pair, setPair] = useState(null);
-  // Correlation view mode ("2d" | "3d") — lives here so it survives the
-  // dashboard remount that happens on asset switch.
-  const [corrView, setCorrView] = useState("2d");
+  // Correlation view mode: "matrix" (heatmap) | "network" (node-link).
+  const [corrView, setCorrView] = useState("matrix");
+  // Trigger timestamps from the last What-If scan, drawn as markers on the
+  // Time Machine detail chart (brush-and-link across views).
+  const [events, setEvents] = useState([]);
 
   useEffect(() => {
     api
@@ -26,7 +28,10 @@ export function AppStateProvider({ children }) {
       .catch((e) => setError(e.message));
   }, []);
 
-  const value = { meta, error, asset, setAsset, window, setWindow, pair, setPair, corrView, setCorrView };
+  const value = {
+    meta, error, asset, setAsset, window, setWindow,
+    pair, setPair, corrView, setCorrView, events, setEvents,
+  };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
