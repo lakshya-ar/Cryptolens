@@ -1,30 +1,59 @@
+# Render Blueprint — deploys the whole CryptoLens stack on Render's free tier.
+#   1. cryptolens-db        : managed PostgreSQL (free)
+#   2. cryptolens-backend   : FastAPI REST API + /ws WebSocket (free web service)
+#   3. cryptolens-frontend  : React + Vite static site (always free)
+#
+# Render Dashboard → New → Blueprint → connect this repo → Apply. Everything
+# below is provisioned and wired automatically; no manual env vars required.
+
+databases:
+  # --- Managed PostgreSQL (free plan) --------------------------------------
+  - name: cryptolens-db
+    databaseName: cryptolens
+    plan: free
+    region: singapore
+
 services:
-  # --- 1. Unified FastAPI REST API + WebSocket Server (Python) -------------
+  # --- 1. FastAPI REST API + WebSocket relay (Python) ----------------------
   - type: web
     name: cryptolens-backend
     runtime: python
+    plan: free
     region: singapore
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # Install deps, then bake a starter dataset (Jan–Mar 2024, all 5 assets)
+    # into Postgres at build time. Widen the window by editing the dates below
+    # (longer builds). Ingestion is idempotent (INSERT ... ON CONFLICT).
+    buildCommand: "pip install -r requirements.txt && python -m ingestion.download --start 2024-01 --end 2024-03"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.7"
       - key: CORS_ORIGINS
         value: "*"
-      # sync: false pauses the blueprint to prompt you for the DB string in the UI
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: cryptolens-db
+          property: connectionString
 
-  # --- 2. React Frontend (Static Site) -------------------------------------
+  # --- 2. React Frontend (Static Site — always free) -----------------------
   - type: web
     name: cryptolens-frontend
     runtime: static
     rootDir: frontend
-    buildCommand: npm install && npm run build
+    buildCommand: "npm install && npm run build"
     staticPublishPath: dist
+    # SPA fallback so deep links / refreshes resolve to index.html.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # api.js turns a bare host into https://<host>/api and wss://<host>/ws,
+      # so the backend's `host` property is exactly what both vars need.
       - key: VITE_API_BASE
         fromService:
           type: web

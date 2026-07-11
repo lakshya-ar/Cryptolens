@@ -1,60 +1,49 @@
-# Deploying CryptoLens
+# Deploying CryptoLens (Render, free tier)
 
-The stack is split across two hosts because Vercel can't run persistent
-WebSocket servers or bundle a large database:
+The whole stack deploys to Render from a single [`render.yaml`](render.yaml)
+Blueprint — no other host required.
 
-| Service | Host | Why |
+| Service | Type | Notes |
 |---|---|---|
-| `frontend` | **Vercel** | Static Vite SPA — ideal for Vercel. |
-| `backend` (FastAPI + DuckDB) | **Render** | Long-running process; data baked in at build time. |
-| `ws-server` (live order book) | **Render** | Needs a persistent WebSocket connection to Binance. |
+| `cryptolens-db` | PostgreSQL (free) | Stores the `klines_1m` table. |
+| `cryptolens-backend` | Web service (free) | FastAPI REST API **and** the `/ws` live-order-book WebSocket, one process. |
+| `cryptolens-frontend` | Static site (free) | React + Vite SPA. |
 
-You need the code on GitHub first (`git init`, push).
-
----
-
-## 1. Backend + WebSocket relay → Render
-
-Both services are defined in [`render.yaml`](render.yaml).
-
-1. Render Dashboard → **New → Blueprint** → connect this GitHub repo.
-2. Render reads `render.yaml` and creates **`cryptolens-api`** and
-   **`cryptolens-ws`**. Click **Apply**.
-3. First build of `cryptolens-api` runs the ingestion (default: Jan–Mar 2024,
-   all 5 assets) and bakes the DuckDB file into the deploy. To load more
-   history, edit the `INGEST_START` / `INGEST_END` env vars (longer builds).
-4. When both are live, copy their URLs, e.g.:
-   - API: `https://cryptolens-api.onrender.com`
-   - WS:  `https://cryptolens-ws.onrender.com` → use as `wss://cryptolens-ws.onrender.com`
-
-> Free-tier Render services sleep after ~15 min idle; the first request cold-starts (~30–60 s).
-
-Sanity-check the API: open `https://cryptolens-api.onrender.com/api/health` → `{"status":"ok"}`.
+The code must be on GitHub first (this repo).
 
 ---
 
-## 2. Frontend → Vercel
+## Deploy
 
-1. Vercel → **Add New → Project** → import this repo.
-2. The root [`vercel.json`](vercel.json) builds `frontend/` and outputs
-   `frontend/dist` — no need to touch the multi-service prompt.
-3. Add **Environment Variables** (Project → Settings → Environment Variables),
-   using your Render URLs from step 1:
+1. Render Dashboard → **New → Blueprint**.
+2. Connect this GitHub repo and select the branch.
+3. Render reads `render.yaml` and lists the database + two services, all on the
+   **free** plan. Click **Apply**.
+4. First backend build installs deps and ingests a starter dataset
+   (Jan–Mar 2024, all 5 assets) into Postgres. This makes the initial build take
+   a few extra minutes.
+5. When the services are live, open the **frontend** URL, e.g.
+   `https://cryptolens-frontend.onrender.com`.
 
-   | Name | Value |
-   |---|---|
-   | `VITE_API_BASE` | `https://cryptolens-api.onrender.com/api` |
-   | `VITE_WS_URL` | `wss://cryptolens-ws.onrender.com` |
+The frontend is wired to the backend automatically: `render.yaml` injects the
+backend host into the frontend's `VITE_API_BASE` / `VITE_WS_URL` at build time,
+and `DATABASE_URL` is injected into the backend from the managed database.
 
-   These are read at **build time**, so redeploy after adding them.
-4. Deploy. The frontend calls the Render API cross-origin (the backend ships
-   with `CORS_ORIGINS=*`; lock it to your Vercel URL later if you want).
+Sanity-check the API: open `https://cryptolens-backend.onrender.com/api/health`
+→ `{"status":"ok"}`.
 
 ---
 
 ## Notes
-- To lock CORS down: set `CORS_ORIGINS=https://<your-app>.vercel.app` on the
-  Render `cryptolens-api` service.
-- Local dev is unchanged: leave the two `VITE_*` vars unset and run
-  `scripts/start-all.ps1` — the app falls back to the Vite proxy and
-  `ws://localhost:8080`.
+
+- **Free-tier sleep:** free web services spin down after ~15 min idle; the first
+  request afterwards cold-starts (~50 s). The static frontend is always on.
+- **Free Postgres lifespan:** Render's free PostgreSQL is time-limited — back up
+  or upgrade before it expires if you need the data long-term.
+- **Loading more history:** edit the `--start` / `--end` months in the backend
+  `buildCommand` in `render.yaml`, then redeploy (longer builds, more storage).
+- **Lock down CORS:** set `CORS_ORIGINS=https://cryptolens-frontend.onrender.com`
+  on the backend service once you know the frontend URL.
+- **Local dev** is unchanged — leave the `VITE_*` vars unset and run the backend
+  (`uvicorn app.main:app --reload --port 8000`) plus `npm run dev`; the frontend
+  falls back to the Vite proxy (`/api`) and `ws://localhost:8000/ws`.
