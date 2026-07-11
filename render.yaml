@@ -61,9 +61,9 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_BASE
-        value: https://cryptolens-api-qayj.onrender.com/api
+        value: https://cryptolens-api-5umm.onrender.com/api
       - key: VITE_WS_URL
-        value: wss://cryptolens-ws.onrender.com
+        value: wss://cryptolens-ws-i1bj.onrender.com
     routes:
       - type: rewrite
         source: /*
