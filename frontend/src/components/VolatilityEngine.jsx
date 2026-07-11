@@ -7,7 +7,9 @@ import { useFetch } from "../hooks";
 import { COLORS, baseLayout, plotConfig } from "../theme";
 
 const SCENARIOS = ["normal", "stress", "crash"];
-const SCEN_COLOR = { normal: "#3fb950", stress: "#f0b429", crash: "#f85149" };
+// Traffic-light metaphor, but darkened for AA contrast on white and
+// separated in luminance so the three states survive colour-blind viewing.
+const SCEN_COLOR = { normal: "#1a7f37", stress: "#9a6700", crash: "#cf222e" };
 const pct = (x) => (x == null ? "—" : `${(x * 100).toFixed(1)}%`);
 
 const SCEN_GLOW = { normal: "ok", stress: "warn", crash: "crit" };
@@ -37,8 +39,8 @@ export default function VolatilityEngine({ index = 0 }) {
       },
     ],
     layout: baseLayout({
-      height: 120,
-      margin: { l: 46, r: 10, t: 6, b: 24 },
+      height: 104,
+      margin: { l: 46, r: 10, t: 4, b: 28 },
       xaxis: { type: "date", gridcolor: COLORS.grid },
       yaxis: { tickformat: ".0%", gridcolor: COLORS.grid },
     }),
@@ -55,9 +57,12 @@ export default function VolatilityEngine({ index = 0 }) {
       },
     ],
     layout: baseLayout({
-      height: 130,
-      margin: { l: 46, r: 10, t: 6, b: 24 },
-      xaxis: { title: { text: "single-period drop", font: { size: 10 } }, gridcolor: COLORS.grid },
+      height: 112,
+      margin: { l: 46, r: 10, t: 4, b: 30 },
+      xaxis: {
+        title: { text: `drop within one ${data?.resolution ?? ""} bar`, font: { size: 10 } },
+        gridcolor: COLORS.grid,
+      },
       yaxis: { tickformat: ".1%", gridcolor: COLORS.grid },
     }),
   };

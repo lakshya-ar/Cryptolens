@@ -55,14 +55,15 @@ export default function TimeMachine({ index = 0 }) {
       },
     ],
     layout: baseLayout({
-      height: 120,
+      height: 96,
       dragmode: false,
       uirevision: asset,
-      margin: { l: 10, r: 10, t: 6, b: 8 },
+      // Same left/right margins as the detail chart so both x-axes align.
+      margin: { l: 54, r: 12, t: 4, b: 8 },
       xaxis: {
         type: "date",
         gridcolor: COLORS.grid,
-        rangeslider: { visible: true, thickness: 0.5, bgcolor: "#0d131c", bordercolor: COLORS.border },
+        rangeslider: { visible: true, thickness: 0.45, bgcolor: COLORS.panelHead, bordercolor: COLORS.border },
         range: [window.start, window.end],
       },
       yaxis: { visible: false, fixedrange: true },
@@ -96,9 +97,9 @@ export default function TimeMachine({ index = 0 }) {
       },
     ],
     layout: baseLayout({
-      height: 300,
+      height: 216,
       uirevision: "detail",
-      margin: { l: 54, r: 12, t: 8, b: 26 },
+      margin: { l: 54, r: 12, t: 4, b: 22 },
       xaxis: { type: "date", gridcolor: COLORS.grid, rangeslider: { visible: false } },
       yaxis: { domain: [0.24, 1], gridcolor: COLORS.grid, tickprefix: "$" },
       yaxis2: { domain: [0, 0.17], gridcolor: COLORS.grid },
@@ -108,7 +109,7 @@ export default function TimeMachine({ index = 0 }) {
   return (
     <Panel
       index={index}
-      className="span-6"
+      className="span-4"
       title="The Time Machine"
       subtitle={`Temporal explorer · ${detail.data?.resolution ?? "…"} candles · drag the slider to brush every view`}
     >

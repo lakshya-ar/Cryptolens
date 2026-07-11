@@ -1,24 +1,38 @@
+// Light theme. Candle up/down keep the industry-standard green/red
+// (TradingView palette — legible on white); all text/UI colours are chosen
+// for WCAG-AA contrast on a white panel.
 export const COLORS = {
-  bg: "#0b0e14",
-  panel: "#141a23",
-  panelHead: "#1b2330",
-  grid: "#232c3a",
-  border: "#26303f",
-  text: "#c9d4e2",
-  muted: "#7d8aa0",
+  bg: "#f4f6fa",
+  panel: "#ffffff",
+  panelHead: "#f1f4f8",
+  grid: "#eaeef4",
+  border: "#dbe2ea",
+  text: "#1c2733",
+  muted: "#5d6c7b",
   up: "#26a69a",
   down: "#ef5350",
-  accent: "#58a6ff",
-  bull: "#3fb950",
-  bear: "#f85149",
+  accent: "#0969da",
+  bull: "#1a7f37",
+  bear: "#cf222e",
+  warn: "#9a6700",
 };
 
+// Brand-recognisable but tuned for contrast against white.
 export const ASSET_COLOR = {
   BTC: "#f7931a",
   ETH: "#627eea",
-  BNB: "#f3ba2f",
-  SOL: "#14f195",
-  XRP: "#8faab8",
+  BNB: "#c99400",
+  SOL: "#9945ff",
+  XRP: "#546e7a",
+};
+
+// Text colour that stays readable on top of each asset chip.
+export const ASSET_TAB_TEXT = {
+  BTC: "#1c2733",
+  ETH: "#ffffff",
+  BNB: "#1c2733",
+  SOL: "#ffffff",
+  XRP: "#ffffff",
 };
 
 export function baseLayout(overrides = {}) {
@@ -31,6 +45,11 @@ export function baseLayout(overrides = {}) {
     yaxis: { gridcolor: COLORS.grid, zerolinecolor: COLORS.grid, automargin: true },
     showlegend: false,
     hovermode: "x unified",
+    hoverlabel: {
+      bgcolor: "#ffffff",
+      bordercolor: COLORS.border,
+      font: { color: COLORS.text, size: 11 },
+    },
     ...overrides,
   };
 }

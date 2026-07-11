@@ -24,7 +24,7 @@ export function TickPulse({ mid }) {
           vx: 1.1 + Math.random() * 1.9,
           vy: (d > 0 ? -1 : 1) * (0.25 + Math.random() * 0.8),
           life: 1,
-          c: d > 0 ? "63,185,80" : "248,81,73",
+          c: d > 0 ? "26,127,55" : "207,34,46",
         });
       }
       if (parts.current.length > 240) parts.current.splice(0, parts.current.length - 240);

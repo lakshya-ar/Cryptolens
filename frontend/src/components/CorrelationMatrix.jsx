@@ -48,7 +48,9 @@ export default function CorrelationMatrix({ index = 0 }) {
         y: labels[i],
         text: v == null ? "—" : v.toFixed(2),
         showarrow: false,
-        font: { size: 11, color: v != null && Math.abs(v) > 0.6 ? "#0b0e14" : COLORS.text },
+        // Strong |ρ| sits on the dark ends of the diverging scale → white text;
+        // weak |ρ| sits near the light middle → dark text.
+        font: { size: 11, color: v != null && Math.abs(v) > 0.55 ? "#ffffff" : COLORS.text },
       });
     })
   );
@@ -64,15 +66,21 @@ export default function CorrelationMatrix({ index = 0 }) {
         zmax: 1,
         colorscale: "RdBu",
         reversescale: true,
-        showscale: false,
-        xgap: 3,
-        ygap: 3,
+        showscale: true,
+        colorbar: {
+          thickness: 8,
+          outlinewidth: 0,
+          tickfont: { size: 9, color: COLORS.muted },
+          tickvals: [-1, -0.5, 0, 0.5, 1],
+        },
+        xgap: 2,
+        ygap: 2,
         hovertemplate: "%{y} · %{x}: %{z:.2f}<extra></extra>",
       },
     ],
     layout: baseLayout({
-      height: 210,
-      margin: { l: 44, r: 10, t: 8, b: 30 },
+      height: 178,
+      margin: { l: 40, r: 4, t: 6, b: 24 },
       annotations,
       xaxis: { side: "bottom", gridcolor: "rgba(0,0,0,0)" },
       yaxis: { autorange: "reversed", gridcolor: "rgba(0,0,0,0)" },
@@ -89,13 +97,13 @@ export default function CorrelationMatrix({ index = 0 }) {
         y: series.map((s) => s.corr),
         line: { color: COLORS.accent, width: 1.5 },
         fill: "tozeroy",
-        fillcolor: "rgba(88,166,255,0.10)",
+        fillcolor: "rgba(9,105,218,0.08)",
         hovertemplate: "%{x|%b %d}  ρ=%{y:.2f}<extra></extra>",
       },
     ],
     layout: baseLayout({
-      height: 120,
-      margin: { l: 44, r: 10, t: 6, b: 24 },
+      height: 100,
+      margin: { l: 40, r: 12, t: 4, b: 28 },
       xaxis: { type: "date", gridcolor: COLORS.grid },
       yaxis: { range: [-1, 1], gridcolor: COLORS.grid, zeroline: true, zerolinecolor: COLORS.border },
     }),

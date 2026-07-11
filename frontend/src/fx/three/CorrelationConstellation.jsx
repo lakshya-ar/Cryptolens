@@ -41,11 +41,11 @@ function Node({ symbol, position, active, onClick }) {
       <Html position={[0, 0.4, 0]} center style={{ pointerEvents: "none" }}>
         <span
           style={{
-            color: "#c9d4e2",
+            color: "#1c2733",
             fontSize: 11,
             fontWeight: 700,
             letterSpacing: 0.6,
-            textShadow: "0 0 6px #0b0e14, 0 0 3px #0b0e14",
+            textShadow: "0 0 6px #ffffff, 0 0 3px #ffffff",
             whiteSpace: "nowrap",
           }}
         >
@@ -62,7 +62,7 @@ function Edge({ a, b, rho, selected, onSelect }) {
   return (
     <Line
       points={[a.pos, b.pos]}
-      color={rho >= 0 ? (selected ? "#9ecbff" : "#58a6ff") : "#f85149"}
+      color={rho >= 0 ? (selected ? "#0550ae" : "#0969da") : "#cf222e"}
       transparent
       opacity={selected ? 0.95 : 0.12 + w * 0.7}
       lineWidth={(selected ? 2 : 0.5) + w * 4}

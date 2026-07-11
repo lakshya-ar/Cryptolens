@@ -83,8 +83,8 @@ export default function MarketDepth({ index = 0 }) {
       },
     ],
     layout: baseLayout({
-      height: 250,
-      margin: { l: 50, r: 12, t: 8, b: 30 },
+      height: 252,
+      margin: { l: 50, r: 12, t: 6, b: 30 },
       xaxis: { title: { text: "price", font: { size: 10 } }, gridcolor: COLORS.grid, tickprefix: "$" },
       yaxis: { title: { text: "cumulative size", font: { size: 10 } }, gridcolor: COLORS.grid },
       shapes: book?.mid
@@ -109,7 +109,7 @@ export default function MarketDepth({ index = 0 }) {
         <TickPulse mid={live?.mid} /> <span className="live-dot" /> {wsState}
       </span>
     ) : book?.synthetic ? (
-      <span style={{ fontSize: 11, color: COLORS.muted }}>reconstructed</span>
+      <span style={{ fontSize: 11, color: COLORS.warn }}>synthetic (reconstructed) — not real quotes</span>
     ) : null;
 
   return (
@@ -134,7 +134,7 @@ export default function MarketDepth({ index = 0 }) {
       <Status
         loading={mode === "historical" && hist.loading}
         error={mode === "historical" ? hist.error : null}
-        empty={!book}
+        empty={mode === "historical" && !book}
       >
         {mode === "live" && !live ? (
           <div className="status">

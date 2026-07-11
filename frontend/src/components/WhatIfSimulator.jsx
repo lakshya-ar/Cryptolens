@@ -46,28 +46,38 @@ export default function WhatIfSimulator({ index = 0 }) {
 
   const fanFig = {
     data: [
-      { x: steps, y: asPct("p10"), mode: "lines", line: { width: 0 }, hoverinfo: "skip" },
+      { x: steps, y: asPct("p10"), mode: "lines", line: { width: 0 }, hoverinfo: "skip", showlegend: false },
       {
         x: steps, y: asPct("p90"), mode: "lines", line: { width: 0 },
-        fill: "tonexty", fillcolor: "rgba(88,166,255,0.10)", hoverinfo: "skip",
+        fill: "tonexty", fillcolor: "rgba(9,105,218,0.09)", hoverinfo: "skip", showlegend: false,
       },
-      { x: steps, y: asPct("p25"), mode: "lines", line: { width: 0 }, hoverinfo: "skip" },
+      { x: steps, y: asPct("p25"), mode: "lines", line: { width: 0 }, hoverinfo: "skip", showlegend: false },
       {
         x: steps, y: asPct("p75"), mode: "lines", line: { width: 0 },
-        fill: "tonexty", fillcolor: "rgba(88,166,255,0.22)", hoverinfo: "skip",
+        fill: "tonexty", fillcolor: "rgba(9,105,218,0.18)", hoverinfo: "skip", showlegend: false,
       },
       {
         x: steps, y: asPct("p50"), mode: "lines", line: { color: COLORS.accent, width: 2 },
         name: "median", hovertemplate: "step %{x}: %{y:.2f}%<extra>median</extra>",
       },
       {
-        x: steps, y: asPct("mean"), mode: "lines", line: { color: "#f0b429", width: 1.5, dash: "dot" },
+        x: steps, y: asPct("mean"), mode: "lines", line: { color: COLORS.warn, width: 1.5, dash: "dot" },
         name: "mean", hovertemplate: "step %{x}: %{y:.2f}%<extra>mean</extra>",
       },
     ],
     layout: baseLayout({
-      height: 240,
-      margin: { l: 50, r: 14, t: 10, b: 34 },
+      height: 170,
+      margin: { l: 46, r: 12, t: 6, b: 30 },
+      showlegend: true,
+      legend: {
+        orientation: "h",
+        x: 1,
+        xanchor: "right",
+        y: 1.12,
+        yanchor: "bottom",
+        font: { size: 10, color: COLORS.muted },
+        bgcolor: "rgba(0,0,0,0)",
+      },
       xaxis: { title: { text: `periods after trigger (${submitted.resolution})`, font: { size: 10 } }, gridcolor: COLORS.grid },
       yaxis: { title: { text: "forward return", font: { size: 10 } }, ticksuffix: "%", gridcolor: COLORS.grid, zeroline: true, zerolinecolor: COLORS.border },
     }),
@@ -78,9 +88,9 @@ export default function WhatIfSimulator({ index = 0 }) {
   return (
     <Panel
       index={index}
-      className="span-6"
+      className="span-2"
       title="The What-If Simulator"
-      subtitle="pattern hypothesis tester · scans all history"
+      subtitle="pattern tester · all history"
     >
       <div className="controls">
         <div className="field">

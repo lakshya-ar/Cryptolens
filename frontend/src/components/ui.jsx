@@ -2,18 +2,18 @@ import { motion } from "framer-motion";
 import { AnimatedNumber } from "../fx/AnimatedNumber.jsx";
 
 const panelVariants = {
-  hidden: { opacity: 0, y: 24, scale: 0.985 },
+  hidden: { opacity: 0, y: 16 },
   show: (i) => ({
     opacity: 1,
     y: 0,
-    scale: 1,
-    transition: { delay: i * 0.08, duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+    transition: { delay: i * 0.06, duration: 0.4, ease: [0.22, 1, 0.36, 1] },
   }),
 };
 
 /**
- * Glass panel with a staggered entrance (via `index`), hover lift, and an
- * optional state glow: glow="ok" | "warn" | "crit".
+ * Card panel with a staggered entrance (via `index`) and an optional state
+ * ring: glow="ok" | "warn" | "crit". Animates on mount (the whole dashboard
+ * fits one screen, so scroll-triggered reveals are unnecessary).
  */
 export function Panel({ title, subtitle, actions, className = "", glow, index = 0, children }) {
   return (
@@ -23,9 +23,7 @@ export function Panel({ title, subtitle, actions, className = "", glow, index = 
       custom={index}
       variants={panelVariants}
       initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: "-40px" }}
-      whileHover={{ y: -3, transition: { duration: 0.18 } }}
+      animate="show"
     >
       <header className="panel-head">
         <div className="panel-title">
