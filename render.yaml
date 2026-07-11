@@ -1,11 +1,8 @@
-# Render Blueprint — deploys the backend API, WebSocket relay, and Frontend.
-# Create all services at once: Render Dashboard → New → Blueprint → pick this repo.
 services:
-  # --- FastAPI REST API + PostgreSQL (Logic Layer) -------------------------
+  # --- 1. FastAPI REST API (Python) -------------------------
   - type: web
     name: cryptolens-api
     runtime: python
-    plan: free
     region: singapore
     rootDir: backend
     buildCommand: pip install -r requirements.txt
@@ -15,15 +12,15 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.7"
       - key: CORS_ORIGINS
-        value: "*" 
-      # MUST SET DATABASE_URL IN RENDER DASHBOARD MANUALLY 
-      # TO POINT TO YOUR PROVISIONED POSTGRESQL INSTANCE
+        value: "*"
+      # sync: false pauses the blueprint to prompt you for the DB string in the UI
+      - key: DATABASE_URL
+        sync: false
 
-  # --- Node WebSocket relay for the live order book ------------------------
+  # --- 2. WebSocket Relay (Node.js) ------------------------
   - type: web
     name: cryptolens-ws
     runtime: node
-    plan: free
     region: singapore
     rootDir: ws-server
     buildCommand: npm install
@@ -33,11 +30,10 @@ services:
       - key: NODE_VERSION
         value: "22"
 
-  # --- React/Vite Frontend Static Site -------------------------------------
+  # --- 3. React Frontend (Static) --------------------------
   - type: web
     name: cryptolens-frontend
     runtime: static
-    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
