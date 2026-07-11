@@ -1,7 +1,7 @@
 services:
-  # --- 1. FastAPI REST API (Python) -------------------------
+  # --- 1. Unified FastAPI REST API + WebSocket Server (Python) -------------
   - type: web
-    name: cryptolens-api
+    name: cryptolens-backend
     runtime: python
     region: singapore
     rootDir: backend
@@ -17,20 +17,7 @@ services:
       - key: DATABASE_URL
         sync: false
 
-  # --- 2. WebSocket Relay (Node.js) ------------------------
-  - type: web
-    name: cryptolens-ws
-    runtime: node
-    region: singapore
-    rootDir: ws-server
-    buildCommand: npm install
-    startCommand: node server.js
-    healthCheckPath: /health
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-
-  # --- 3. React Frontend (Static) --------------------------
+  # --- 2. React Frontend (Static Site) -------------------------------------
   - type: web
     name: cryptolens-frontend
     runtime: static
@@ -41,10 +28,10 @@ services:
       - key: VITE_API_BASE
         fromService:
           type: web
-          name: cryptolens-api
+          name: cryptolens-backend
           property: host
       - key: VITE_WS_URL
         fromService:
           type: web
-          name: cryptolens-ws
+          name: cryptolens-backend
           property: host

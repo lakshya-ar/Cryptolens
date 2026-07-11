@@ -242,3 +242,50 @@ def depth(
     book = reconstruct_depth(price, recent_volume, seed=int(at.timestamp()))
     book.update({"symbol": symbol, "at": str(at)})
     return book
+
+
+
+import asyncio
+import logging
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import websockets
+
+# Ensure your existing app initialization and routers remain above this line...
+
+logger = logging.getLogger("uvicorn.error")
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    logger.info("Client successfully connected to the order book stream handler.")
+    
+    # Target external Binance Stream pipeline
+    binance_url = "wss://stream.binance.com:9443/ws/btcusdt@depth"
+    
+    try:
+        async with websockets.connect(binance_url) as binance_ws:
+            
+            # Define a listener task to fetch data from Binance and push to frontend
+            async def forward_binance_to_client():
+                try:
+                    while True:
+                        data = await binance_ws.recv()
+                        await websocket.send_text(data)
+                except Exception as e:
+                    logger.error(f"Error forwarding Binance data: {e}")
+
+            # Run the forwarding loop asynchronously
+            forward_task = asyncio.create_task(forward_binance_to_client())
+            
+            # Keep the loop open while the client remains connected
+            while True:
+                # We listen for client messages or disconnect pulses
+                await websocket.receive_text()
+                
+    except WebSocketDisconnect:
+        logger.info("Client split tracking pipeline dropped.")
+    except Exception as e:
+        logger.error(f"WebSocket worker channel runtime anomaly: {e}")
+    finally:
+        if 'forward_task' in locals():
+            forward_task.cancel()

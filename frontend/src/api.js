@@ -1,7 +1,7 @@
-// Grab the host injected by Render, or default to local proxy
+// Grab the unified host injected by Render, or default to local proxies
 let BASE = import.meta.env.VITE_API_BASE || "/api";
 
-// If Render injected a raw hostname, format it into a proper HTTPS URL with /api
+// Format host into a proper HTTPS URL with /api pathing
 if (BASE && !BASE.startsWith('http') && !BASE.startsWith('/')) {
   BASE = `https://${BASE}/api`;
 } else if (BASE.startsWith('http') && !BASE.endsWith('/api')) {
@@ -34,10 +34,14 @@ export const api = {
   depth: (p) => get("/depth", p),
 };
 
-// Handle WebSocket host injection
-let WS = import.meta.env.VITE_WS_URL || "ws://localhost:8080";
+// Handle WebSocket connection directly through the same single backend host
+let WS = import.meta.env.VITE_WS_URL || "ws://localhost:8000";
+
 if (WS && !WS.startsWith('ws')) {
-  WS = `wss://${WS}`;
+  // Point directly to the unified /ws endpoint in FastAPI
+  WS = `wss://${WS}/ws`;
+} else if (WS === "ws://localhost:8000") {
+  WS = "ws://localhost:8000/ws";
 }
 
 export const WS_URL = WS;
