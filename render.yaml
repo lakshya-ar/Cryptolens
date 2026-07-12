@@ -21,17 +21,25 @@ services:
     plan: free
     region: singapore
     rootDir: backend
-    # Install deps, then bake a starter dataset (Jan–Mar 2024, all 5 assets)
-    # into Postgres at build time. Widen the window by editing the dates below
-    # (longer builds). Ingestion is idempotent (INSERT ... ON CONFLICT).
-    buildCommand: "pip install -r requirements.txt && python -m ingestion.download --start 2024-01 --end 2024-03"
-    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    buildCommand: "pip install -r requirements.txt"
+    # Ingestion runs at startup, NOT build: Render's build phase can't reach the
+    # private Postgres. bootstrap ingests a starter dataset (Jan–Mar 2024, all 5
+    # assets) only if the DB is empty, in the background, so uvicorn binds the
+    # port immediately and the health check passes while data loads. Tune the
+    # window with the INGEST_START / INGEST_END env vars below.
+    startCommand: "python -m ingestion.bootstrap & uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.7"
       - key: CORS_ORIGINS
         value: "*"
+      # Starter-dataset window loaded at first startup (YYYY-MM). Widen for more
+      # history (longer first boot, more storage). Idempotent on later boots.
+      - key: INGEST_START
+        value: "2024-01"
+      - key: INGEST_END
+        value: "2024-03"
       - key: DATABASE_URL
         fromDatabase:
           name: cryptolens-db
