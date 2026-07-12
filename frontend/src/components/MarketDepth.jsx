@@ -18,6 +18,9 @@ export default function MarketDepth({ index = 0 }) {
   const [mode, setMode] = useState("historical");
   const [live, setLive] = useState(null);
   const [wsState, setWsState] = useState("idle");
+  // How many connect attempts since the last successful open — drives the
+  // "waking the relay" hint (Render's free tier cold-starts in ~30–60s).
+  const [attempts, setAttempts] = useState(0);
   const wsRef = useRef(null);
 
   const hist = useFetch(
@@ -26,31 +29,60 @@ export default function MarketDepth({ index = 0 }) {
     mode === "historical"
   );
 
+  // Live mode with auto-reconnect + exponential backoff. Without this a single
+  // failed connect (relay asleep on the free tier, a dropped socket, a Wi-Fi
+  // blip) left the panel stuck forever — the relay itself is fine, the client
+  // just never tried again.
   useEffect(() => {
-    if (mode !== "live") {
-      wsRef.current?.close();
-      return;
-    }
-    setWsState("connecting");
-    let ws;
-    try {
-      ws = new WebSocket(WS_URL);
-    } catch {
-      setWsState("error");
-      return;
-    }
-    wsRef.current = ws;
-    ws.onopen = () => {
-      setWsState("live");
-      ws.send(JSON.stringify({ type: "subscribe", symbol: asset }));
+    if (mode !== "live") return;
+
+    let ws = null;
+    let tries = 0;
+    let retryTimer = null;
+    let disposed = false;
+
+    const scheduleReconnect = () => {
+      if (disposed) return;
+      const delay = Math.min(1000 * 2 ** tries, 15000); // 1,2,4,8,15s (capped)
+      tries += 1;
+      setAttempts(tries);
+      retryTimer = setTimeout(open, delay);
     };
-    ws.onmessage = (ev) => {
-      const msg = JSON.parse(ev.data);
-      if (msg.type === "depth") setLive(msg);
+
+    const open = () => {
+      if (disposed) return;
+      setWsState((s) => (s === "live" ? "reconnecting" : tries === 0 ? "connecting" : "reconnecting"));
+      try {
+        ws = new WebSocket(WS_URL);
+      } catch {
+        scheduleReconnect();
+        return;
+      }
+      wsRef.current = ws;
+      ws.onopen = () => {
+        tries = 0;
+        setAttempts(0);
+        setWsState("live");
+        ws.send(JSON.stringify({ type: "subscribe", symbol: asset }));
+      };
+      ws.onmessage = (ev) => {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch { return; }
+        if (msg.type === "depth") setLive(msg);
+        // Relay tells us its Binance upstream is down (e.g. geo-block): show a
+        // clear message instead of a hopeful spinner.
+        else if (msg.type === "status" && msg.ok === false) setWsState("unavailable");
+      };
+      ws.onerror = () => { /* onclose fires next and drives the retry */ };
+      ws.onclose = () => { if (!disposed) scheduleReconnect(); };
     };
-    ws.onerror = () => setWsState("error");
-    ws.onclose = () => setWsState((s) => (s === "live" ? "closed" : s));
-    return () => ws.close();
+
+    open();
+    return () => {
+      disposed = true;
+      clearTimeout(retryTimer);
+      ws?.close();
+    };
   }, [mode, asset]);
 
   const book = mode === "live" ? live : hist.data;
@@ -138,8 +170,10 @@ export default function MarketDepth({ index = 0 }) {
       >
         {mode === "live" && !live ? (
           <div className="status">
-            {wsState === "error"
-              ? "WS relay not reachable — start ws-server (npm start on :8080)."
+            {wsState === "unavailable"
+              ? "Live feed unavailable — the relay can't reach Binance right now."
+              : attempts >= 2
+              ? "Waking the live relay (free tier cold-starts in ~30–60s)…"
               : "Connecting to live stream…"}
           </div>
         ) : (

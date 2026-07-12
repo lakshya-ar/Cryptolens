@@ -13,6 +13,7 @@ Endpoints (all under /api):
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -48,6 +49,33 @@ def _guard_data():
         return store.coverage()
     except store.DataUnavailable as exc:
         raise HTTPException(503, str(exc))
+
+
+# Approximate seconds per bucket, for capping response sizes.
+RES_SECONDS = {"1m": 60, "1h": 3600, "1d": 86400, "1w": 604800, "1mo": 2629800}
+# Hard server-side cap: the frontend disables anything beyond ~2000 candles,
+# but a hand-crafted URL must not be able to freeze the browser (or serialize
+# half a million rows).
+MAX_CANDLES = 3000
+
+
+@lru_cache(maxsize=256)
+def _ohlcv_payload(symbol: str, start_iso: str, end_iso: str, res: str) -> dict:
+    """Cacheable OHLCV response — the DB is read-only, so a window's candles
+    never change while the process lives (lru_cache does not cache raised
+    exceptions, so DataUnavailable propagates until the DB appears)."""
+    df = store.ohlcv(symbol, datetime.fromisoformat(start_iso), datetime.fromisoformat(end_iso), res)
+    cols = [df["ts"].astype(str).tolist()] + [
+        df[c].tolist() for c in ("open", "high", "low", "close", "volume")
+    ]
+    return {
+        "symbol": symbol,
+        "resolution": res,
+        "candles": [
+            {"ts": t, "open": o, "high": h, "low": l, "close": c, "volume": v}
+            for t, o, h, l, c, v in zip(*cols)
+        ],
+    }
 
 
 @app.get("/api/health")
@@ -86,21 +114,17 @@ def ohlcv(
         raise HTTPException(400, f"unknown symbol {symbol}; choose from {SYMBOLS}")
     # Price chart gets weekly/monthly tiers so multi-year spans stay readable.
     res = _resolve_resolution(resolution, start, end, coarse_ok=True)
+    approx = (end - start).total_seconds() / RES_SECONDS[res]
+    if approx > MAX_CANDLES:
+        raise HTTPException(
+            422,
+            f"window would produce ~{int(approx):,} {res} candles "
+            f"(max {MAX_CANDLES}); choose a coarser resolution",
+        )
     try:
-        df = store.ohlcv(symbol, start, end, res)
+        return _ohlcv_payload(symbol, start.isoformat(), end.isoformat(), res)
     except store.DataUnavailable as exc:
         raise HTTPException(503, str(exc))
-    return {
-        "symbol": symbol,
-        "resolution": res,
-        "candles": [
-            {
-                "ts": str(r.ts), "open": r.open, "high": r.high,
-                "low": r.low, "close": r.close, "volume": r.volume,
-            }
-            for r in df.itertuples()
-        ],
-    }
 
 
 @app.get("/api/volatility")

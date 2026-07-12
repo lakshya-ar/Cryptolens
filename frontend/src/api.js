@@ -19,9 +19,28 @@ async function get(path, params = {}) {
   return res.json();
 }
 
+// Historical OHLCV is immutable, so memoise responses: toggling presets or
+// candle resolutions back and forth re-renders instantly instead of re-hitting
+// the (cold-start-prone) Render backend. FIFO-capped to bound memory.
+const ohlcvCache = new Map();
+const OHLCV_CACHE_MAX = 60;
+
+function ohlcvCached(p) {
+  const entries = Object.entries(p).filter(([, v]) => v != null && v !== "");
+  const key = new URLSearchParams(entries).toString();
+  if (ohlcvCache.has(key)) return Promise.resolve(ohlcvCache.get(key));
+  return get("/ohlcv", p).then((d) => {
+    if (ohlcvCache.size >= OHLCV_CACHE_MAX) {
+      ohlcvCache.delete(ohlcvCache.keys().next().value);
+    }
+    ohlcvCache.set(key, d);
+    return d;
+  });
+}
+
 export const api = {
   meta: () => get("/meta"),
-  ohlcv: (p) => get("/ohlcv", p),
+  ohlcv: ohlcvCached,
   volatility: (p) => get("/volatility", p),
   correlation: (p) => get("/correlation", p),
   correlationPair: (p) => get("/correlation/pair", p),

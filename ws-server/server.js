@@ -51,26 +51,39 @@ function ensureUpstream(symbol) {
   const feed = { upstream: null, clients: new Set(), last: null, url };
   feeds.set(symbol, feed);
 
+  const fanout = (obj) => {
+    const payload = JSON.stringify(obj);
+    for (const c of feed.clients) {
+      if (c.readyState === WebSocket.OPEN) c.send(payload);
+    }
+  };
+
+  let backoff = 1000;
   const connect = () => {
     const up = new WebSocket(url);
     feed.upstream = up;
+    up.on("open", () => { backoff = 1000; }); // reset backoff on a good connect
     up.on("message", (buf) => {
       let raw;
       try { raw = JSON.parse(buf.toString()); } catch { return; }
       const msg = normalise(symbol, raw);
       feed.last = msg;
-      const payload = JSON.stringify(msg);
-      for (const c of feed.clients) {
-        if (c.readyState === WebSocket.OPEN) c.send(payload);
-      }
+      fanout(msg);
     });
     up.on("close", () => {
-      // Reconnect only while clients are still listening.
-      if (feed.clients.size > 0) setTimeout(connect, 1000);
+      // Reconnect (with backoff) only while clients are still listening.
+      if (feed.clients.size > 0) {
+        // Tell clients the feed dropped so the UI can show a clear state
+        // instead of a spinner that never resolves (e.g. a US-region deploy
+        // that Binance rejects with HTTP 451).
+        fanout({ type: "status", ok: false, symbol, reason: "upstream_down" });
+        setTimeout(connect, backoff);
+        backoff = Math.min(backoff * 2, 30000); // 1,2,4,…,30s cap
+      }
     });
     up.on("error", (err) => {
       console.error(`upstream ${symbol} error:`, err.message);
-      up.close();
+      up.close(); // triggers the close handler above (status + backoff retry)
     });
   };
   connect();
