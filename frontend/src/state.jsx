@@ -18,14 +18,35 @@ export function AppStateProvider({ children }) {
   const [events, setEvents] = useState([]);
 
   useEffect(() => {
-    api
-      .meta()
-      .then((m) => {
-        setMeta(m);
-        if (m.default_window) setWindow(m.default_window);
-        if (m.symbols?.length) setPair([m.symbols[0], m.symbols[1] ?? m.symbols[0]]);
-      })
-      .catch((e) => setError(e.message));
+    let alive = true;
+    let timer;
+    // Free-tier backends sleep after ~15 min and cold-start (~50s), so the first
+    // /meta call after idle often fails. Retry for ~80s before surfacing a hard
+    // error, and show the plain "Loading dataset…" state while waiting.
+    const load = (attempt = 0) => {
+      api
+        .meta()
+        .then((m) => {
+          if (!alive) return;
+          setError(null);
+          setMeta(m);
+          if (m.default_window) setWindow(m.default_window);
+          if (m.symbols?.length) setPair([m.symbols[0], m.symbols[1] ?? m.symbols[0]]);
+        })
+        .catch((e) => {
+          if (!alive) return;
+          if (attempt < 20) {
+            timer = setTimeout(() => alive && load(attempt + 1), 4000);
+          } else {
+            setError(e.message);
+          }
+        });
+    };
+    load();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   const value = {
